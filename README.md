@@ -17,7 +17,7 @@ While there are many designs that could address these considerations, for this e
 Ideally a process on the backend would sweep these log documents into a server-side logging system where they could be available for analysis and troubleshooting, and purge the documents after sweeping to avoid needless replication. This example does not cover those operations, it focuses solely on the client-side storage of the logs entries.
 
 #####How to use this example:
-Add the file LogStorage.swift to your Predix Mobile container Xcode project, and the file LogStorageTests.swift to your container's unit tests.
+Add the file `LogStorage.swift` to your Predix Mobile container Xcode project, and the file `LogStorageTests.swift` to your container's unit tests.
 
 Then add this property to your AppDelegate:
 
@@ -26,5 +26,5 @@ Then add this property to your AppDelegate:
 
 That's really all that's needed. The LogStorage class automatically takes over logging operations when it's initialized.
 
-#####Explore the code for full details
+#####Explore the code for full details.
 
