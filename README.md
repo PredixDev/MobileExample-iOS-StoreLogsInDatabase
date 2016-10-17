@@ -15,8 +15,13 @@ While there are many designs that could address these considerations, for this e
 * When the app is notified of low-memory or backgrounding, any current log entries in memory will be stored as a disk document regardless of the number of entries.
 
 Ideally a process on the backend would sweep these log documents into a server-side logging system where they could be available for analysis and troubleshooting, and purge the documents after sweeping to avoid needless replication. This example does not cover those operations, it focuses solely on the client-side storage of the logs entries.
+###Before you begin
+To get started, follow this documentation:
+* [Get Started with the Mobile Service and Mobile SDK] (https://www.predix.io/docs#rae4EfJ6) 
+* [Running the Predix Mobile Sample App] (https://www.predix.io/docs#EGUzWwcC)
+* [Creating a Mobile Hello World Webapp] (https://www.predix.io/docs#DrBWuHkl) 
 
-#####How to use this example:
+###How to use this example:
 Add the file `LogStorage.swift` to your Predix Mobile container Xcode project, and the file `LogStorageTests.swift` to your container's unit tests.
 
 Then add this property to your AppDelegate:
