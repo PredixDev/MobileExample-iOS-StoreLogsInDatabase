@@ -19,7 +19,7 @@ Ideally a process on the backend would sweep these log documents into a server-s
 To get started, follow this documentation:
 * [Get Started with the Mobile Service and Mobile SDK] (https://www.predix.io/docs#rae4EfJ6) 
 * [Running the Predix Mobile Sample App] (https://www.predix.io/docs#EGUzWwcC)
-* [Creating a Mobile Hello World Webapp] (https://www.predix.io/docs#DrBWuHkl) 
+* [Creating a Mobile Hello World Web App] (https://www.predix.io/docs#DrBWuHkl) 
 
 ###How to use this example:
 Add the file `LogStorage.swift` to your Predix Mobile container Xcode project, and the file `LogStorageTests.swift` to your container's unit tests.
