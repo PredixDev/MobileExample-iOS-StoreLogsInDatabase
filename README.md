@@ -27,7 +27,7 @@ Add the file `LogStorage.swift` to your Predix Mobile container Xcode project, a
 Then add this property to your AppDelegate:
 
     // override logging behavior, store logs in the database
-    var logStorage : LogStorage = LogStorage()
+    let logStorage = LogStorage()
 
 That's really all that's needed. The LogStorage class automatically takes over logging operations when it's initialized.
 

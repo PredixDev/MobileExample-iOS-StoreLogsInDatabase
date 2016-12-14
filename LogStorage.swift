@@ -68,18 +68,18 @@ internal class LogStorage
     var backgroundingObserver : NSObjectProtocol?
     
     // memory storage for the logs
-    var logStore : [[String: AnyObject]] = []
+    var logStore : [[String: Any]] = []
     
     // formatter for the log date
-    lazy var logDataFormatter : NSDateFormatter = {
-        let formatter = NSDateFormatter()
+    lazy var logDataFormatter : DateFormatter = {
+        let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-mm-dd hh:MM:ss.SSS"
         return formatter
     }()
     
     // location where log documents are written to disk if the database is unavailable.
-    lazy var logLocation : NSURL = {
-        return PredixMobilityConfiguration.localStorageURL.URLByAppendingPathComponent(self.LogPersistancePath)
+    lazy var logLocation : URL = {
+        return PredixMobilityConfiguration.localStorageURL.appendingPathComponent(self.LogPersistancePath)
     }()
     
     //MARK: Initialization and Deinitialization
@@ -105,14 +105,14 @@ internal class LogStorage
     //Stop persisting logs and restore the default log writing mechanism
     func stopStoringLogs()
     {
-        PGSDKLogger.setLogLineWriterBlock(nil)
+        (Logger.shared as! Logger).setLogLineWriterClosure(nil)
         self.clearObservers()
         self.clearAndPersistLog()
     }
     
     // Persists the given log entries as a document, either to disk or the database as available.
     // if the database is unavailable an observer will be created to watch for when the database is ready.
-    func persistLog(logStore: [[String: AnyObject]])
+    func persistLog(_ logStore: [[String: Any]])
     {
         // if database is ready then store the logs directly in the database, otherwise store on disk
         
@@ -121,17 +121,17 @@ internal class LogStorage
             var responseStatus : HTTPStatusCode?
             
             // query database to see if replication is configured. If not, then the database isn't ready.
-            ServiceRouter.sharedInstance.processRequest(ServiceId.DB, extraPath: "~/replication", method: "GET", data: nil, responseBlock: { (response : NSURLResponse?) -> Void in
+            ServiceRouter.sharedInstance.processRequest(ServiceId.DB, extraPath: "~/replication", method: "GET", data: nil, responseBlock: { (response : URLResponse?) -> Void in
                 
-                if let response = response as? NSHTTPURLResponse
+                if let response = response as? HTTPURLResponse
                 {
                     responseStatus = HTTPStatusCode(rawValue: response.statusCode)
                 }
-                }, dataBlock: { (_ : NSData?) -> Void in
+                }, dataBlock: { (_ : Data?) -> Void in
                     // we don't care about the data here, just the status
                 }) { () -> Void in
                     
-                    if let responseStatus = responseStatus where responseStatus == HTTPStatusCode.OK
+                    if let responseStatus = responseStatus, responseStatus == HTTPStatusCode.ok
                     {
                         // store the logs in the database
                         self.persistLogToDatabase(logData)
@@ -154,7 +154,7 @@ internal class LogStorage
         {
             unowned let unownedSelf = self
             
-            self.databaseReadyObserver = NSNotificationCenter.defaultCenter().addObserverForName(InitialReplicationCompleteNotification, object: nil, queue: nil, usingBlock: { (notification: NSNotification) -> Void in
+            self.databaseReadyObserver = NotificationCenter.default.addObserver(forName: InitialReplicationCompleteNotification, object: nil, queue: nil, using: { (notification: Notification) -> Void in
 
                 // now that the database is ready we don't need to watch for it anymore
                 unownedSelf.removeObserver(&self.databaseReadyObserver)
@@ -165,33 +165,33 @@ internal class LogStorage
     }
     
     // Persists log documents already serialized to NSData objects to the database
-    func persistLogToDatabase(data : NSData)
+    func persistLogToDatabase(_ data : Data)
     {
         self.persistLogToDatabase(data, onComplete: nil)
     }
     
     // Persists log documents already serialized to NSData objects to the database, with a closure so callers can know when the process is complete, and if it was successful.
-    func persistLogToDatabase(data : NSData, onComplete: ((Bool)->())?)
+    func persistLogToDatabase(_ data : Data, onComplete: ((Bool)->())?)
     {
         var responseStatus : HTTPStatusCode?
-        var responseDictionary : [String: AnyObject]?
+        var responseDictionary : [String: Any]?
         
-        ServiceRouter.sharedInstance.processRequest(ServiceId.CDB, extraPath: "~", method: "POST", data: data, responseBlock: { (response : NSURLResponse?) -> Void in
-            if let response = response as? NSHTTPURLResponse
+        ServiceRouter.sharedInstance.processRequest(ServiceId.CDB, extraPath: "~", method: "POST", data: data, responseBlock: { (response : URLResponse?) -> Void in
+            if let response = response as? HTTPURLResponse
             {
                 responseStatus = HTTPStatusCode(rawValue: response.statusCode)
             }
-            }, dataBlock: { (data: NSData?) -> Void in
+            }, dataBlock: { (data: Data?) -> Void in
                 if let data = data
                 {
-                    responseDictionary = (try? NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions(rawValue: 0))) as? [String : AnyObject]
+                    responseDictionary = (try? JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions(rawValue: 0))) as? [String : Any]
                 }
             }, completionBlock: { () -> Void in
                 
                 var success = true
-                if responseStatus != HTTPStatusCode.Created && responseDictionary?["ok"] as? Bool != true
+                if responseStatus != HTTPStatusCode.created && responseDictionary?["ok"] as? Bool != true
                 {
-                    PGSDKLogger.error("Error creating log document: status: \(responseStatus) response dictionary: \(responseDictionary)")
+                    Logger.error("Error creating log document: status: \(responseStatus) response dictionary: \(responseDictionary)")
                     success = false
                 }
                 
@@ -215,19 +215,19 @@ internal class LogStorage
     }
     
     // Persists log documents already serialized to NSData objects to disk
-    func persistLogToDisk(data : NSData)
+    func persistLogToDisk(_ data : Data)
     {
-        let logFile = self.logLocation.URLByAppendingPathComponent(NSUUID().UUIDString).path!
-        if !NSFileManager.defaultManager().createFileAtPath(logFile, contents: data, attributes: [NSFileProtectionKey : NSFileProtectionCompleteUntilFirstUserAuthentication])
+        let logFile = self.logLocation.appendingPathComponent(UUID().uuidString).path
+        if !FileManager.default.createFile(atPath: logFile, contents: data, attributes: [FileAttributeKey.protectionKey.rawValue : FileProtectionType.completeUntilFirstUserAuthentication])
         {
-            PGSDKLogger.error("Persisting logs to disk returned false. Logs will be lost")
+            Logger.error("Persisting logs to disk returned false. Logs will be lost")
         }
     }
     
     // Determines if any log documents are on disk
     func hasLogsOnDisk()->(Bool)
     {
-        if let files = try? NSFileManager.defaultManager().contentsOfDirectoryAtURL(self.logLocation, includingPropertiesForKeys: nil, options: NSDirectoryEnumerationOptions(rawValue: 0))
+        if let files = try? FileManager.default.contentsOfDirectory(at: self.logLocation, includingPropertiesForKeys: nil, options: FileManager.DirectoryEnumerationOptions(rawValue: 0))
         {
             return files.count > 0
         }
@@ -239,23 +239,23 @@ internal class LogStorage
     {
         do
         {
-            let fileManager = NSFileManager.defaultManager()
-            let files = try fileManager.contentsOfDirectoryAtURL(self.logLocation, includingPropertiesForKeys: nil, options: NSDirectoryEnumerationOptions(rawValue: 0))
+            let fileManager = FileManager.default
+            let files = try fileManager.contentsOfDirectory(at: self.logLocation, includingPropertiesForKeys: nil, options: FileManager.DirectoryEnumerationOptions(rawValue: 0))
             
             for file in files
             {
-                if let logData = NSData(contentsOfFile: file.path!)
+                if let logData = try? Data(contentsOf: URL(fileURLWithPath: file.path))
                 {
                     self.persistLogToDatabase(logData, onComplete: { (success: Bool) -> () in
                         if success
                         {
                             do
                             {
-                                try fileManager.removeItemAtURL(file)
+                                try fileManager.removeItem(at: file)
                             }
                             catch let error
                             {
-                                PGSDKLogger.error("Error deleting persisted log file: \(error)")
+                                Logger.error("Error deleting persisted log file: \(error)")
                             }
                         }
                     })
@@ -265,27 +265,27 @@ internal class LogStorage
         }
         catch let error
         {
-            PGSDKLogger.error("Error reading log files from disk: \(error)")
+            Logger.error("Error reading log files from disk: \(error)")
         }
     }
     
     // Takes an array of log entries and creates a log document dictionary
-    func logArrayToJSON(logArray: [[String: AnyObject]])->(NSData?)
+    func logArrayToJSON(_ logArray: [[String: Any]])->(Data?)
     {
         // exit if logArray is somehow invalid
-        if NSJSONSerialization.isValidJSONObject(logArray)
+        if JSONSerialization.isValidJSONObject(logArray)
         {
-            let deviceId = UIDevice.currentDevice().identifierForVendor!.UUIDString
-            let bundleId = NSBundle.mainBundle().bundleIdentifier!
+            let deviceId = UIDevice.current.identifierForVendor!.uuidString
+            let bundleId = Bundle.main.bundleIdentifier!
             
-            let logDocument = [LogDocumentKeys.DeviceId : deviceId, LogDocumentKeys.BundleId : bundleId, LogDocumentKeys.DocumentType : self.LogDocumentType, LogDocumentKeys.Logs : logArray]
+            let logDocument : [String: Any] = [LogDocumentKeys.DeviceId : deviceId, LogDocumentKeys.BundleId : bundleId, LogDocumentKeys.DocumentType : self.LogDocumentType, LogDocumentKeys.Logs : logArray]
             
             // since we're checking for a valid object above, it's unlikely we'll have an error here, so skipping do/catch for optional syntax
-            return try? NSJSONSerialization.dataWithJSONObject(logDocument, options: NSJSONWritingOptions(rawValue: 0))
+            return try? JSONSerialization.data(withJSONObject: logDocument, options: JSONSerialization.WritingOptions(rawValue: 0))
         }
         else
         {
-            PGSDKLogger.error("Unable to persist log array. Log array is not a valid JSON object")
+            Logger.error("Unable to persist log array. Log array is not a valid JSON object")
         }
         return nil
     }
@@ -302,12 +302,12 @@ internal class LogStorage
     }
     
     // Writes a single log entry, then validiates if the logging threshold has been surpassed.
-    func storeLogMsg(msg: String, date: NSDate)
+    func storeLogMsg(_ msg: String, date: Date)
     {
         // Storing the log message, and date/time separately. Could store other information per-line information here too if needed.
-        let dateString = self.logDataFormatter.stringFromDate(date)
+        let dateString = self.logDataFormatter.string(from: date)
         
-        self.logStore.append([LogEntryKeys.Date : dateString, LogEntryKeys.LogEntry : msg])
+        self.logStore.append([LogEntryKeys.Date : dateString as Any, LogEntryKeys.LogEntry : msg as Any])
         
         self.persistLogIfNeeded()
     }
@@ -315,7 +315,7 @@ internal class LogStorage
     //MARK: Private methods
     
     // Cleans up all NSNotificationCenter observers used.
-    private func clearObservers()
+    fileprivate func clearObservers()
     {
         // Clean up observers
         self.removeObserver(&self.databaseReadyObserver)
@@ -324,34 +324,34 @@ internal class LogStorage
     }
 
     // Removes a NSNotificationCenter observer
-    private func removeObserver(inout observerProperty : NSObjectProtocol?)
+    fileprivate func removeObserver(_ observerProperty : inout NSObjectProtocol?)
     {
         if let observer = observerProperty
         {
             observerProperty = nil
-            NSNotificationCenter.defaultCenter().removeObserver(observer)
+            NotificationCenter.default.removeObserver(observer)
         }
     }
     
-    // Initailizes the log storage system by hooking the PGSDKLogger writer block, 
+    // Initailizes the log storage system by hooking the Logger writer block, 
     // creating observers for low memory and backgrounding, and ensures the disk 
     // location for log documents is created.
-    private func setupLogStorage()
+    fileprivate func setupLogStorage()
     {
         unowned let unownedSelf = self
         
-        self.memoryObserver = NSNotificationCenter.defaultCenter().addObserverForName(UIApplicationDidReceiveMemoryWarningNotification, object: nil, queue: nil, usingBlock: { (_:NSNotification) -> Void in
+        self.memoryObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.UIApplicationDidReceiveMemoryWarning, object: nil, queue: nil, using: { (_:Notification) -> Void in
             // when running out of memory quickly dump the logs to disk
             unownedSelf.persistLogToDisk()
         })
         
-        self.backgroundingObserver = NSNotificationCenter.defaultCenter().addObserverForName(UIApplicationDidEnterBackgroundNotification, object: nil, queue: nil, usingBlock: { (_:NSNotification) -> Void in
+        self.backgroundingObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.UIApplicationDidEnterBackground, object: nil, queue: nil, using: { (_:Notification) -> Void in
             // if going to background, quickly dump the logs to disk
             unownedSelf.persistLogToDisk()
         })
 
         // Create disk log file directory if needed
-        _ = try? NSFileManager.defaultManager().createDirectoryAtURL(self.logLocation, withIntermediateDirectories: true, attributes: nil)
+        _ = try? FileManager.default.createDirectory(at: self.logLocation, withIntermediateDirectories: true, attributes: nil)
         
         // if we have logs on disk at startup, then create a database ready observer, so when the database is ready we'll automatically transfer the logs
         if self.hasLogsOnDisk()
@@ -360,22 +360,16 @@ internal class LogStorage
         }
         
         // Hooks the PredixMobileSDK logging system, replacing the default logging
-        PGSDKLogger.setLogLineWriterBlock { (msg : String, args : CVaListPointer) -> Void in
-            // The formatter follows the same parameters as NSLog in ObjC.
-            // There may not be any args, but if there are, merge them into the string.
-            let logLine = NSString(format: msg, arguments: args) as String
-            
-            // now that we have a complete log string, print it to the console.
-            // After all, we want to store the logs, but not eliminate them from the console
-            NSLog(logLine)
-            
+        (Logger.shared as! Logger).setLogLineWriterClosure { (logLine:String) in
+            print(logLine)
+
             // store current time and log message as tuple
-            unownedSelf.storeLogMsg(logLine, date: NSDate())
+            unownedSelf.storeLogMsg(logLine, date: Date())
         }
     }
     
     // Clears the existing logStore array, and persists the previously written logs entries
-    private func clearAndPersistLog()
+    fileprivate func clearAndPersistLog()
     {
         let storeCopy = self.logStore
         self.logStore.removeAll()
