@@ -292,12 +292,12 @@ internal class LogStorage {
     // creating observers for low memory and backgrounding, and ensures the disk 
     // location for log documents is created.
     fileprivate func setupLogStorage() {
-        self.memoryObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.UIApplicationDidReceiveMemoryWarning, object: nil, queue: nil, using: {[weak self] (_:Notification) -> Void in
+        self.memoryObserver = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: nil, using: {[weak self] (_:Notification) -> Void in
             // when running out of memory quickly dump the logs to disk
             self?.persistLogToDisk()
         })
 
-        self.backgroundingObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.UIApplicationDidEnterBackground, object: nil, queue: nil, using: {[weak self] (_:Notification) -> Void in
+        self.backgroundingObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil, using: {[weak self] (_:Notification) -> Void in
             // if going to background, quickly dump the logs to disk
             self?.persistLogToDisk()
         })

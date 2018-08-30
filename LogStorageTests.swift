@@ -403,7 +403,7 @@ class LogStorageTests: XCTestCase {
 
         Logger.info(testString)
 
-        NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidReceiveMemoryWarning, object: nil)
+        NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
 
         XCTAssertTrue(logStorage.hasLogsOnDisk(), "Logs not found on disk when expected")
 
@@ -423,7 +423,7 @@ class LogStorageTests: XCTestCase {
 
         Logger.info(testString)
 
-        NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidEnterBackground, object: nil)
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
 
         XCTAssertTrue(logStorage.hasLogsOnDisk(), "Logs not found on disk when expected")
     }
